@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JustFine';
+  src: url('/fonts/JustFine-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --accent: #CD2928;
+  --accent-hover: #A02020;
+  --bg-light: #F8F4E3;
+  --bg-dark: #1C1B19;
+  --text-dark: #2D2A26;
+  --text-muted: #6F6655;
+  --text-light: #BFAE9A;
+  --text-muted-dark: #9B9280;
+  --border-light: #D5C7AA;
+  --border-dark: #3A3630;
+}
+
+@font-face {
+  font-family: 'NewPoppins';
+  src: url('/fonts/NewPoppins-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Roboto Mono';
+  src: url('/fonts/RobotoMono-VariableFont_wght.ttf') format('truetype-variations');
+  font-weight: 100 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+html, body {
+  background-color: var(--bg-light);
+  color: var(--text-dark);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'NewPoppins', sans-serif;
+  @apply leading-tight;
+}
+
+body {
+  font-family: 'NewPoppins', sans-serif;
+  @apply leading-relaxed;
+}
+
+.mono {
+  font-family: 'Roboto Mono', monospace;
+  @apply text-sm;
+}
+
+/* Utilitaires supplémentaires */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bg-bg-muted {
+  background-color: #EFEAD3;
+}
