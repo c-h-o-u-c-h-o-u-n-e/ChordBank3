@@ -51,31 +51,34 @@ export const directAddSongSheet = async (
       artistId = existingArtist.id;
     }
     
+    // Validation stricte de l'ID d'artiste
     if (!artistId || typeof artistId !== 'number' || artistId <= 0) {
       console.error("ID d'artiste invalide:", artistId);
       return null;
     }
     
     // 2. Insérer la partition
+    const partitionData = {
+      artist_id: artistId,
+      title: title,
+      tuning: tuning,
+      key_signature: keySignature,
+      capo: capo,
+      tempo: tempo,
+      time_signature: timeSignature,
+      rhythm: rhythm,
+      lyrics: lyrics,
+      views: 0,
+      recent_views: 0,
+      album: album,
+      year: year,
+      difficulty: difficulty,
+      youtube_link: youtubeLink
+    };
+
     const { data: newPartition, error: partitionError } = await supabase
       .from('partitions')
-      .insert({
-        artist_id: artistId,
-        title: title,
-        tuning: tuning,
-        key_signature: keySignature,
-        capo: capo,
-        tempo: tempo,
-        time_signature: timeSignature,
-        rhythm: rhythm,
-        lyrics: lyrics,
-        views: 0,
-        recent_views: 0,
-        album: album,
-        year: year,
-        difficulty: difficulty,
-        youtube_link: youtubeLink
-      })
+      .insert(partitionData)
       .select('id')
       .single();
       
@@ -86,7 +89,7 @@ export const directAddSongSheet = async (
 
     const partitionId = newPartition.id;
     
-    // Validation stricte de l'ID de partition avant d'insérer les accords
+    // Validation stricte de l'ID de partition
     if (!partitionId || typeof partitionId !== 'number' || partitionId <= 0) {
       console.error("ID de partition invalide après insertion:", partitionId);
       return null;
@@ -94,7 +97,7 @@ export const directAddSongSheet = async (
     
     // 3. Insérer les accords seulement si nous avons des accords valides à insérer
     if (chords && Array.isArray(chords) && chords.length > 0) {
-      // Valider chaque accord avant de préparer l'insertion
+      // Préparer les données d'accords avec validation
       const chordsToInsert = chords
         .map((chord, index) => {
           if (!chord?.chord?.trim() || !chord?.fingering?.trim()) {
@@ -111,6 +114,7 @@ export const directAddSongSheet = async (
         .filter((chord): chord is NonNullable<typeof chord> => chord !== null);
 
       if (chordsToInsert.length > 0) {
+        // Insérer les accords en une seule opération
         const { error: chordsError } = await supabase
           .from('partition_chords')
           .insert(chordsToInsert);
@@ -118,14 +122,10 @@ export const directAddSongSheet = async (
         if (chordsError) {
           console.error("Erreur lors de l'insertion des accords:", chordsError);
           // On continue malgré l'erreur d'accords, mais on log l'erreur
-        } else {
-          console.log("Accords insérés avec succès");
         }
       } else {
         console.log("Pas d'accords valides à insérer");
       }
-    } else {
-      console.log("Pas d'accords à insérer");
     }
     
     return partitionId;
