@@ -6,7 +6,7 @@ export const directAddSongSheet = async (
   artist: string,
   title: string,
   tuning: string,
-  key: string,
+  keySignature: string,
   capo: string,
   tempo: string,
   timeSignature: string,
@@ -18,9 +18,13 @@ export const directAddSongSheet = async (
   difficulty?: string,
   youtubeLink?: string
 ): Promise<number | null> => {
+  // Validation des données d'entrée
+  if (!artist?.trim() || !title?.trim()) {
+    console.error("Artiste et titre requis");
+    return null;
+  }
+
   try {
-    console.log("Début de l'enregistrement direct de la partition...");
-    
     // 1. Insérer ou récupérer l'artiste
     let artistId: number;
     const { data: existingArtist, error: artistSearchError } = await supabase
@@ -31,8 +35,6 @@ export const directAddSongSheet = async (
       .single();
       
     if (artistSearchError || !existingArtist) {
-      console.log("Artiste non trouvé, création d'un nouvel artiste...");
-      
       const { data: newArtist, error: artistInsertError } = await supabase
         .from('artists')
         .insert({ name: artist })
@@ -54,8 +56,6 @@ export const directAddSongSheet = async (
       return null;
     }
     
-    console.log("Artiste ID:", artistId);
-    
     // 2. Insérer la partition
     const { data: newPartition, error: partitionError } = await supabase
       .from('partitions')
@@ -63,7 +63,7 @@ export const directAddSongSheet = async (
         artist_id: artistId,
         title: title,
         tuning: tuning,
-        key_signature: key,
+        key_signature: keySignature,
         capo: capo,
         tempo: tempo,
         time_signature: timeSignature,
@@ -96,8 +96,6 @@ export const directAddSongSheet = async (
       console.error("ID de partition invalide après insertion:", partitionId);
       return null;
     }
-    
-    console.log("Partition créée avec ID:", partitionId);
     
     // 3. Insérer les accords seulement si nous avons un ID de partition valide et des accords à insérer
     if (chords && Array.isArray(chords) && chords.length > 0) {
@@ -132,7 +130,6 @@ export const directAddSongSheet = async (
       console.log("Pas d'accords à insérer");
     }
     
-    console.log("Partition sauvegardée avec succès");
     return partitionId;
   } catch (error) {
     console.error("Erreur générale lors de la sauvegarde directe:", error);
