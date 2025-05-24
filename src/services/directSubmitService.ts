@@ -79,13 +79,20 @@ export const directAddSongSheet = async (
       .select('id')
       .single();
       
-    if (partitionError || !newPartition) {
+    if (partitionError) {
       console.error("Erreur lors de la création de la partition:", partitionError);
       return null;
     }
 
+    if (!newPartition || !newPartition.id) {
+      console.error("Pas d'ID de partition retourné après insertion");
+      return null;
+    }
+
     const partitionId = newPartition.id;
-    if (!partitionId || typeof partitionId !== 'number' || partitionId <= 0) {
+    
+    // Validation supplémentaire de l'ID de partition
+    if (typeof partitionId !== 'number' || partitionId <= 0) {
       console.error("ID de partition invalide après insertion:", partitionId);
       return null;
     }
@@ -94,22 +101,32 @@ export const directAddSongSheet = async (
     
     // 3. Insérer les accords seulement si nous avons un ID de partition valide et des accords à insérer
     if (chords && Array.isArray(chords) && chords.length > 0) {
-      const chordsToInsert = chords.map((chord, index) => ({
-        partition_id: partitionId,
-        chord: chord.chord,
-        fingering: chord.fingering,
-        position: index
-      }));
-      
-      const { error: chordsError } = await supabase
-        .from('partition_chords')
-        .insert(chordsToInsert);
-        
-      if (chordsError) {
-        console.error("Erreur lors de l'insertion des accords:", chordsError);
-        // On continue malgré l'erreur d'accords, mais on log l'erreur
+      const chordsToInsert = chords.map((chord, index) => {
+        if (!chord || !chord.chord || !chord.fingering) {
+          console.error("Données d'accord invalides à la position", index);
+          return null;
+        }
+        return {
+          partition_id: partitionId,
+          chord: chord.chord,
+          fingering: chord.fingering,
+          position: index
+        };
+      }).filter((chord): chord is NonNullable<typeof chord> => chord !== null);
+
+      if (chordsToInsert.length > 0) {
+        const { error: chordsError } = await supabase
+          .from('partition_chords')
+          .insert(chordsToInsert);
+          
+        if (chordsError) {
+          console.error("Erreur lors de l'insertion des accords:", chordsError);
+          // On continue malgré l'erreur d'accords, mais on log l'erreur
+        } else {
+          console.log("Accords insérés avec succès");
+        }
       } else {
-        console.log("Accords insérés avec succès");
+        console.log("Pas d'accords valides à insérer");
       }
     } else {
       console.log("Pas d'accords à insérer");
