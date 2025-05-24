@@ -37,28 +37,39 @@ const Lyrics: React.FC<LyricsProps> = ({ lyrics }) => {
       const keyLower = sectionKey.toLowerCase();
       let j = i + 1;
       
-      // Check if this section has lyrics or just chords
+      // Check if this section has lyrics or just chord blocks
       let hasLyrics = false;
+      let hasChordBlocks = false;
       let k = i + 1;
       while (k < rawLines.length && !rawLines[k].trim().match(/^\[.*\]$/)) {
-        // If line contains something other than chord blocks (|), it has lyrics
-        if (rawLines[k].trim() && !rawLines[k].trim().split('').every(char => char === '|' || char === ' ')) {
+        const line = rawLines[k].trim();
+        if (!line) {
+          k++;
+          continue;
+        }
+        
+        // Check if line is a chord block (contains only |, spaces, and chord names)
+        const isChordBlock = /^\|[\s|A-G#mb0-9]+\|$/.test(line);
+        if (isChordBlock) {
+          hasChordBlocks = true;
+        } else {
           hasLyrics = true;
-          break;
         }
         k++;
       }
       
       const isInstrumental = (
         keyLower.includes('instrumental') || 
-        ((keyLower === 'intro' || keyLower === 'outro') && !hasLyrics)
+        ((keyLower === 'intro' || keyLower === 'outro') && hasChordBlocks && !hasLyrics)
       );
       
       if (isInstrumental) {
         const gridLines: string[] = [];
         while (j < rawLines.length && !rawLines[j].trim().match(/^\[.*\]$/)) {
           const line = rawLines[j].trim();
-          if (line) gridLines.push(line);
+          if (line && /^\|[\s|A-G#mb0-9]+\|$/.test(line)) {
+            gridLines.push(line);
+          }
           j++;
         }
         segments.push({ type: 'instrumental', sectionKey, lines: gridLines });
@@ -119,7 +130,9 @@ const Lyrics: React.FC<LyricsProps> = ({ lyrics }) => {
             const sectionLabel = num ? `${labelBase} ${num}` : labelBase;
 
             const rows = seg.lines!.map(line =>
-              line.split('|').map(c => c.trim()).filter(Boolean)
+              line.split('|')
+                .map(c => c.trim())
+                .filter(c => c && !/^[\s|]+$/.test(c))
             );
             const numCols = Math.max(...rows.map(r => r.length));
 
