@@ -79,38 +79,36 @@ export const directAddSongSheet = async (
       .select('id')
       .single();
       
-    if (partitionError) {
+    if (partitionError || !newPartition) {
       console.error("Erreur lors de la création de la partition:", partitionError);
-      return null;
-    }
-
-    if (!newPartition || !newPartition.id) {
-      console.error("Pas d'ID de partition retourné après insertion");
       return null;
     }
 
     const partitionId = newPartition.id;
     
-    // Validation supplémentaire de l'ID de partition
-    if (typeof partitionId !== 'number' || partitionId <= 0) {
+    // Validation stricte de l'ID de partition avant d'insérer les accords
+    if (!partitionId || typeof partitionId !== 'number' || partitionId <= 0) {
       console.error("ID de partition invalide après insertion:", partitionId);
       return null;
     }
     
-    // 3. Insérer les accords seulement si nous avons un ID de partition valide et des accords à insérer
+    // 3. Insérer les accords seulement si nous avons des accords valides à insérer
     if (chords && Array.isArray(chords) && chords.length > 0) {
-      const chordsToInsert = chords.map((chord, index) => {
-        if (!chord || !chord.chord || !chord.fingering) {
-          console.error("Données d'accord invalides à la position", index);
-          return null;
-        }
-        return {
-          partition_id: partitionId,
-          chord: chord.chord,
-          fingering: chord.fingering,
-          position: index
-        };
-      }).filter((chord): chord is NonNullable<typeof chord> => chord !== null);
+      // Valider chaque accord avant de préparer l'insertion
+      const chordsToInsert = chords
+        .map((chord, index) => {
+          if (!chord?.chord?.trim() || !chord?.fingering?.trim()) {
+            console.error("Données d'accord invalides à la position", index);
+            return null;
+          }
+          return {
+            partition_id: partitionId,
+            chord: chord.chord.trim(),
+            fingering: chord.fingering.trim(),
+            position: index
+          };
+        })
+        .filter((chord): chord is NonNullable<typeof chord> => chord !== null);
 
       if (chordsToInsert.length > 0) {
         const { error: chordsError } = await supabase
