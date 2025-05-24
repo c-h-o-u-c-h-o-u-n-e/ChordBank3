@@ -80,6 +80,7 @@ export const directAddSongSheet = async (
     
     // Validation stricte de l'ID d'artiste
     if (!artistId || typeof artistId !== 'number' || artistId <= 0) {
+      console.error("ID d'artiste invalide:", artistId);
       return { 
         error: 'VALIDATION_ERROR',
         message: "ID d'artiste invalide"
@@ -112,6 +113,7 @@ export const directAddSongSheet = async (
       .single();
       
     if (partitionError || !newPartition) {
+      console.error("Erreur lors de la création de la partition:", partitionError);
       return { 
         error: 'DATABASE_ERROR',
         message: 'Erreur lors de la création de la partition',
@@ -121,55 +123,67 @@ export const directAddSongSheet = async (
 
     const partitionId = newPartition.id;
     
-    // Validation stricte de l'ID de partition
+    // Validation stricte de l'ID de partition avant d'insérer les accords
     if (!partitionId || typeof partitionId !== 'number' || partitionId <= 0) {
       console.error("ID de partition invalide après insertion:", partitionId);
-      return null;
+      return {
+        error: 'DATABASE_ERROR',
+        message: 'ID de partition invalide après création',
+        details: `ID reçu: ${partitionId}`
+      };
     }
     
     // 3. Insérer les accords seulement si nous avons des accords valides à insérer
-    if (chords && Array.isArray(chords) && chords.length > 0) {
-      // Préparer les données d'accords avec validation
-      const chordsToInsert = chords
-        .map((chord, index) => {
-          const trimmedChord = chord?.chord?.trim();
-          const trimmedFingering = chord?.fingering?.trim();
-          
-          if (!trimmedChord || !trimmedFingering) {
-            console.warn("Données d'accord manquantes à la position", index);
-            return null;
-          }
-          
-          if (!validateChord(trimmedChord)) {
-            console.warn("Format d'accord invalide à la position", index);
-            return null;
-          }
-          
-          if (!validateFingering(trimmedFingering)) {
-            console.warn("Format de doigté invalide à la position", index);
-            return null;
-          }
-          
-          return {
-            partition_id: partitionId,
-            chord: trimmedChord,
-            fingering: trimmedFingering,
-            position: index
-          };
-        })
-        .filter((chord): chord is NonNullable<typeof chord> => chord !== null);
+    if (!chords || !Array.isArray(chords) || chords.length === 0) {
+      console.log("Pas d'accords à insérer");
+      return { id: partitionId };
+    }
 
-      if (chordsToInsert.length > 0) {
-        // Insérer les accords en une seule opération
-        const { error: chordsError } = await supabase
-          .from('partition_chords')
-          .insert(chordsToInsert);
-          
-        if (chordsError) {
-          console.warn("Erreur lors de l'insertion des accords:", chordsError);
+    // Préparer les données d'accords avec validation
+    const chordsToInsert = chords
+      .map((chord, index) => {
+        if (!chord || typeof chord !== 'object') {
+          console.warn("Accord invalide à la position", index);
+          return null;
         }
-      } else {
-        console.log("Pas d'accords valides à insérer");
+
+        const trimmedChord = chord.chord?.trim();
+        const trimmedFingering = chord.fingering?.trim();
+        
+        if (!trimmedChord || !trimmedFingering) {
+          console.warn("Données d'accord manquantes à la position", index);
+          return null;
+        }
+        
+        if (!validateChord(trimmedChord)) {
+          console.warn("Format d'accord invalide à la position", index);
+          return null;
+        }
+        
+        if (!validateFingering(trimmedFingering)) {
+          console.warn("Format de doigté invalide à la position", index);
+          return null;
+        }
+        
+        return {
+          partition_id: partitionId,
+          chord: trimmedChord,
+          fingering: trimmedFingering,
+          position: index
+        };
+      })
+      .filter((chord): chord is NonNullable<typeof chord> => chord !== null);
+
+    if (chordsToInsert.length > 0) {
+      // Insérer les accords en une seule opération
+      const { error: chordsError } = await supabase
+        .from('partition_chords')
+        .insert(chordsToInsert);
+        
+      if (chordsError) {
+        console.error("Erreur lors de l'insertion des accords:", chordsError);
+        // On continue malgré l'erreur d'insertion des accords
+        // La partition a été créée avec succès
       }
     }
     
