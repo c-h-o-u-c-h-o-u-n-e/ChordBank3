@@ -163,3 +163,30 @@ export type SongDetails = {
   difficulty?: string;
   youtubeLink?: string;
 };
+
+export type ErrorType = 
+  | 'VALIDATION_ERROR'
+  | 'DATABASE_ERROR'
+  | 'UNKNOWN_ERROR';
+
+export interface SubmitError {
+  error: ErrorType;
+  message: string;
+  details?: string;
+}
+
+export interface ValidationError {
+  field: string;
+  message: string;
+}
+
+export class DatabaseError extends Error {
+  constructor(
+    message: string,
+    public readonly code?: string,
+    public readonly details?: string
+  ) {
+    super(message);
+    this.name = 'DatabaseError';
+  }
+}

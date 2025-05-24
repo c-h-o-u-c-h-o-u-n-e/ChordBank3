@@ -1,5 +1,18 @@
 import { supabase } from '../config/supabase';
-import { ChordEntry } from '../types/database.types';
+import { ChordEntry, SubmitError } from '../types/database.types';
+
+const validateChord = (chord: string): boolean => {
+  return /^[A-G][#b]?(m|maj|min|dim|aug|sus[24]|add\d|7|9|13)?$/.test(chord);
+};
+
+const validateFingering = (fingering: string): boolean => {
+  return /^[X0-9]{6}$/.test(fingering);
+};
+
+const validateYouTubeUrl = (url?: string): boolean => {
+  if (!url) return true;
+  return /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[a-zA-Z0-9_-]{11}$/.test(url);
+};
 
 // Fonction pour sauvegarder directement une partition sans utiliser la RPC
 export const directAddSongSheet = async (
@@ -17,11 +30,22 @@ export const directAddSongSheet = async (
   year?: number,
   difficulty?: string,
   youtubeLink?: string
-): Promise<number | null> => {
+): Promise<{ id: number } | SubmitError> => {
   // Validation des données d'entrée
   if (!artist?.trim() || !title?.trim()) {
-    console.error("Artiste et titre requis");
-    return null;
+    return { error: 'VALIDATION_ERROR', message: 'Artiste et titre requis' };
+  }
+
+  if (year && (year < 1900 || year > new Date().getFullYear() + 1)) {
+    return { error: 'VALIDATION_ERROR', message: 'Année invalide' };
+  }
+
+  if (difficulty && !['Débutant', 'Intermédiaire', 'Expert'].includes(difficulty)) {
+    return { error: 'VALIDATION_ERROR', message: 'Niveau de difficulté invalide' };
+  }
+
+  if (!validateYouTubeUrl(youtubeLink)) {
+    return { error: 'VALIDATION_ERROR', message: 'Format URL YouTube invalide' };
   }
 
   try {
@@ -42,8 +66,11 @@ export const directAddSongSheet = async (
         .single();
         
       if (artistInsertError || !newArtist) {
-        console.error("Erreur lors de la création de l'artiste:", artistInsertError);
-        return null;
+        return { 
+          error: 'DATABASE_ERROR',
+          message: "Erreur lors de la création de l'artiste",
+          details: artistInsertError.message
+        };
       }
       
       artistId = newArtist.id;
@@ -53,8 +80,10 @@ export const directAddSongSheet = async (
     
     // Validation stricte de l'ID d'artiste
     if (!artistId || typeof artistId !== 'number' || artistId <= 0) {
-      console.error("ID d'artiste invalide:", artistId);
-      return null;
+      return { 
+        error: 'VALIDATION_ERROR',
+        message: "ID d'artiste invalide"
+      };
     }
     
     // 2. Insérer la partition
@@ -83,8 +112,11 @@ export const directAddSongSheet = async (
       .single();
       
     if (partitionError || !newPartition) {
-      console.error("Erreur lors de la création de la partition:", partitionError);
-      return null;
+      return { 
+        error: 'DATABASE_ERROR',
+        message: 'Erreur lors de la création de la partition',
+        details: partitionError.message
+      };
     }
 
     const partitionId = newPartition.id;
@@ -100,14 +132,28 @@ export const directAddSongSheet = async (
       // Préparer les données d'accords avec validation
       const chordsToInsert = chords
         .map((chord, index) => {
-          if (!chord?.chord?.trim() || !chord?.fingering?.trim()) {
-            console.error("Données d'accord invalides à la position", index);
+          const trimmedChord = chord?.chord?.trim();
+          const trimmedFingering = chord?.fingering?.trim();
+          
+          if (!trimmedChord || !trimmedFingering) {
+            console.warn("Données d'accord manquantes à la position", index);
             return null;
           }
+          
+          if (!validateChord(trimmedChord)) {
+            console.warn("Format d'accord invalide à la position", index);
+            return null;
+          }
+          
+          if (!validateFingering(trimmedFingering)) {
+            console.warn("Format de doigté invalide à la position", index);
+            return null;
+          }
+          
           return {
             partition_id: partitionId,
-            chord: chord.chord.trim(),
-            fingering: chord.fingering.trim(),
+            chord: trimmedChord,
+            fingering: trimmedFingering,
             position: index
           };
         })
@@ -120,17 +166,20 @@ export const directAddSongSheet = async (
           .insert(chordsToInsert);
           
         if (chordsError) {
-          console.error("Erreur lors de l'insertion des accords:", chordsError);
-          // On continue malgré l'erreur d'accords, mais on log l'erreur
+          console.warn("Erreur lors de l'insertion des accords:", chordsError);
         }
       } else {
         console.log("Pas d'accords valides à insérer");
       }
     }
     
-    return partitionId;
+    return { id: partitionId };
   } catch (error) {
     console.error("Erreur générale lors de la sauvegarde directe:", error);
-    return null;
+    return {
+      error: 'UNKNOWN_ERROR',
+      message: 'Erreur inattendue lors de la sauvegarde',
+      details: error instanceof Error ? error.message : String(error)
+    };
   }
 };
