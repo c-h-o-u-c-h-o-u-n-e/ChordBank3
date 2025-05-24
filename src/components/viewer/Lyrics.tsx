@@ -34,13 +34,26 @@ const Lyrics: React.FC<LyricsProps> = ({ lyrics }) => {
     const match = trimmed.match(/^\[(.*?)\]$/);
     if (match) {
       const sectionKey = match[1];
-      let j = i + 1;
       const keyLower = sectionKey.toLowerCase();
+      let j = i + 1;
+      
+      // Check if this section has lyrics or just chords
+      let hasLyrics = false;
+      let k = i + 1;
+      while (k < rawLines.length && !rawLines[k].trim().match(/^\[.*\]$/)) {
+        // If line contains something other than chord blocks (|), it has lyrics
+        if (rawLines[k].trim() && !rawLines[k].trim().split('').every(char => char === '|' || char === ' ')) {
+          hasLyrics = true;
+          break;
+        }
+        k++;
+      }
+      
       const isInstrumental = (
-        keyLower.includes('instrumental') ||
-        keyLower === 'intro' ||
-        keyLower === 'outro'
+        keyLower.includes('instrumental') || 
+        ((keyLower === 'intro' || keyLower === 'outro') && !hasLyrics)
       );
+      
       if (isInstrumental) {
         const gridLines: string[] = [];
         while (j < rawLines.length && !rawLines[j].trim().match(/^\[.*\]$/)) {
@@ -106,7 +119,7 @@ const Lyrics: React.FC<LyricsProps> = ({ lyrics }) => {
             const sectionLabel = num ? `${labelBase} ${num}` : labelBase;
 
             const rows = seg.lines!.map(line =>
-              line.split('|').map(c => c.trim()).filter(c => c)
+              line.split('|').map(c => c.trim()).filter(Boolean)
             );
             const numCols = Math.max(...rows.map(r => r.length));
 
