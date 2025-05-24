@@ -364,10 +364,36 @@ export const updateSongSheet = async (
   difficulty?: string,
   youtubeLink?: string
 ) => {
-  // First, update the partition in the 'partitions' table
+  // First, ensure we have the correct artist ID
+  let artistId: number;
+  const { data: existingArtist, error: artistSearchError } = await supabase
+    .from('artists')
+    .select('id')
+    .eq('name', artist)
+    .limit(1)
+    .single();
+    
+  if (artistSearchError || !existingArtist) {
+    const { data: newArtist, error: artistInsertError } = await supabase
+      .from('artists')
+      .insert({ name: artist })
+      .select('id')
+      .single();
+      
+    if (artistInsertError || !newArtist) {
+      throw new Error("Erreur lors de la création de l'artiste");
+    }
+    
+    artistId = newArtist.id;
+  } else {
+    artistId = existingArtist.id;
+  }
+
+  // Then update the partition with the correct artist_id
   const { error: updateError } = await supabase
     .from('partitions')
     .update({
+      artist_id: artistId,
       title,
       tuning,
       key_signature: key,
