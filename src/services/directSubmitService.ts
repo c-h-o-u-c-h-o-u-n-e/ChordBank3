@@ -80,10 +80,15 @@ export const directAddSongSheet = async (
     }
     
     const partitionId = newPartition.id;
+    if (!partitionId || partitionId <= 0) {
+      console.error("ID de partition invalide:", partitionId);
+      return null;
+    }
+    
     console.log("Partition créée avec ID:", partitionId);
     
-    // 3. Insérer les accords
-    if (chords.length > 0) {
+    // 3. Insérer les accords seulement si nous avons un ID de partition valide
+    if (chords.length > 0 && partitionId > 0) {
       const chordsToInsert = chords.map((chord, index) => ({
         partition_id: partitionId,
         chord: chord.chord,
@@ -97,7 +102,7 @@ export const directAddSongSheet = async (
         
       if (chordsError) {
         console.error("Erreur lors de l'insertion des accords:", chordsError);
-        // Pas de retour null ici, on continue malgré l'erreur d'accords
+        // On continue malgré l'erreur d'accords, mais on log l'erreur
       } else {
         console.log("Accords insérés avec succès");
       }
