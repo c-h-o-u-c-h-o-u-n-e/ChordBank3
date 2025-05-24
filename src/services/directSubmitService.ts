@@ -49,6 +49,11 @@ export const directAddSongSheet = async (
       artistId = existingArtist.id;
     }
     
+    if (!artistId || typeof artistId !== 'number') {
+      console.error("ID d'artiste invalide:", artistId);
+      return null;
+    }
+    
     console.log("Artiste ID:", artistId);
     
     // 2. Insérer la partition
@@ -74,21 +79,21 @@ export const directAddSongSheet = async (
       .select('id')
       .single();
       
-    if (partitionError || !newPartition) {
+    if (partitionError) {
       console.error("Erreur lors de la création de la partition:", partitionError);
+      return null;
+    }
+
+    if (!newPartition || !newPartition.id) {
+      console.error("Pas d'ID de partition retourné après insertion");
       return null;
     }
     
     const partitionId = newPartition.id;
-    if (!partitionId || partitionId <= 0) {
-      console.error("ID de partition invalide:", partitionId);
-      return null;
-    }
-    
     console.log("Partition créée avec ID:", partitionId);
     
-    // 3. Insérer les accords seulement si nous avons un ID de partition valide
-    if (chords.length > 0 && partitionId > 0) {
+    // 3. Insérer les accords seulement si nous avons un ID de partition valide et des accords à insérer
+    if (chords && chords.length > 0 && partitionId && typeof partitionId === 'number' && partitionId > 0) {
       const chordsToInsert = chords.map((chord, index) => ({
         partition_id: partitionId,
         chord: chord.chord,
@@ -106,6 +111,8 @@ export const directAddSongSheet = async (
       } else {
         console.log("Accords insérés avec succès");
       }
+    } else {
+      console.log("Pas d'accords à insérer ou ID de partition invalide");
     }
     
     console.log("Partition sauvegardée avec succès");
