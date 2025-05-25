@@ -20,10 +20,13 @@ const extractYouTubeId = (url?: string): string | null => {
 const YouTubeAudioPlayer: React.FC<YouTubeAudioPlayerProps> = ({ youtubeLink }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
   const [player, setPlayer] = useState<YT.Player | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const playerRef = useRef<HTMLDivElement>(null);
+  const progressInterval = useRef<number | null>(null);
 
   const youtubeId = extractYouTubeId(youtubeLink);
   
@@ -56,6 +59,7 @@ const YouTubeAudioPlayer: React.FC<YouTubeAudioPlayerProps> = ({ youtubeLink }) 
             onReady: () => {
               console.log('YouTube player ready');
               setPlayer(newPlayer);
+              setDuration(newPlayer.getDuration());
               // Définir le volume initial
               newPlayer.setVolume(70);
             },
@@ -126,9 +130,44 @@ const YouTubeAudioPlayer: React.FC<YouTubeAudioPlayerProps> = ({ youtubeLink }) 
     }
   }, [isMuted, player]);
 
+  // Mise à jour de la progression
+  useEffect(() => {
+    if (!player) return;
+    
+    if (isPlaying) {
+      progressInterval.current = window.setInterval(() => {
+        const currentTime = player.getCurrentTime();
+        const duration = player.getDuration();
+        setProgress((currentTime / duration) * 100);
+      }, 1000);
+    } else if (progressInterval.current) {
+      window.clearInterval(progressInterval.current);
+    }
+    
+    return () => {
+      if (progressInterval.current) {
+        window.clearInterval(progressInterval.current);
+      }
+    };
+  }, [isPlaying, player]);
+
   // Gestion du bouton de lecture/pause
   const togglePlay = () => {
     setIsPlaying(prev => !prev);
+  };
+
+  // Gestion du clic sur la barre de progression
+  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!player || !duration) return;
+    
+    const progressBar = e.currentTarget;
+    const rect = progressBar.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percentage = (x / rect.width) * 100;
+    const newTime = (duration * percentage) / 100;
+    
+    player.seekTo(newTime, true);
+    setProgress(percentage);
   };
 
   // Gestion du bouton de sourdine
@@ -145,7 +184,7 @@ const YouTubeAudioPlayer: React.FC<YouTubeAudioPlayerProps> = ({ youtubeLink }) 
       <div ref={playerRef} style={{ display: 'none' }}></div>
       
       {/* Contrôles du lecteur */}
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-4">
         <button 
           onClick={togglePlay}
           className="bg-[#CD2928] text-white rounded-full w-10 h-10 flex items-center justify-center hover:bg-[#A02020] transition-colors focus:outline-none"
@@ -163,6 +202,22 @@ const YouTubeAudioPlayer: React.FC<YouTubeAudioPlayerProps> = ({ youtubeLink }) 
         >
           <FontAwesomeIcon icon={isMuted ? faVolumeXmark : faVolumeHigh} />
         </button>
+        
+        {/* Barre de progression */}
+        <div 
+          className="relative flex-1 h-2 bg-[#E5E0C0] rounded-full cursor-pointer overflow-hidden"
+          onClick={handleProgressClick}
+        >
+          <div 
+            className="absolute inset-y-0 left-0 bg-[#CD2928] rounded-full transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        
+        {/* Durée */}
+        <div className="text-text-dark text-sm font-mono min-w-[40px]">
+          {Math.floor((duration * (progress / 100)) / 60)}:{String(Math.floor((duration * (progress / 100)) % 60)).padStart(2, '0')}
+        </div>
         
         <div className="text-text-dark text-sm">
           {error ? (
@@ -219,6 +274,8 @@ declare global {
       setVolume: (volume: number) => void;
       getVolume: () => number;
       destroy: () => void;
+      getCurrentTime: () => number;
+      seekTo: (seconds: number, allowSeekAhead: boolean) => void;
     }
   }
 }
