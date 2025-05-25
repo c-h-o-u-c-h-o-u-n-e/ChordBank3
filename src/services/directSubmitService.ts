@@ -2,7 +2,7 @@ import { supabase } from '../config/supabase';
 import { ChordEntry, SubmitError } from '../types/database.types';
 
 const validateChord = (chord: string): boolean => {
-  return /^[A-G][#b]?(m|maj|min|dim|aug|sus[24]|add\d|7|9|13)?$/.test(chord);
+  return /^[A-G][#b]?(m|maj|min|dim|aug|sus[24]|add\d|7|9|13)?(?:\/[A-G][#b]?)?$/.test(chord);
 };
 
 const validateFingering = (fingering: string): boolean => {

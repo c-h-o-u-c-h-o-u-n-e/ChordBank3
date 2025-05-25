@@ -49,7 +49,7 @@ const Lyrics: React.FC<LyricsProps> = ({ lyrics }) => {
         }
         
         // Check if line is a chord block (contains only |, spaces, and chord names)
-        const isChordBlock = /^\|[\s|A-G#mb0-9]+\|$/.test(line);
+        const isChordBlock = /^\|[\s|A-G#mb0-9/]+\|$/.test(line);
         if (isChordBlock) {
           hasChordBlocks = true;
         } else {
@@ -60,14 +60,14 @@ const Lyrics: React.FC<LyricsProps> = ({ lyrics }) => {
       
       const isInstrumental = (
         keyLower.includes('instrumental') || 
-        ((keyLower === 'intro' || keyLower === 'outro') && hasChordBlocks && !hasLyrics)
+        ((keyLower === 'intro' || keyLower === 'outro'))
       );
       
       if (isInstrumental) {
         const gridLines: string[] = [];
         while (j < rawLines.length && !rawLines[j].trim().match(/^\[.*\]$/)) {
           const line = rawLines[j].trim();
-          if (line && /^\|[\s|A-G#mb0-9]+\|$/.test(line)) {
+          if (line && /^\|[\s|A-G#mb0-9/]+\|$/.test(line)) {
             gridLines.push(line);
           }
           j++;
