@@ -79,7 +79,7 @@ export const directAddSongSheet = async (
         return { 
           error: 'DATABASE_ERROR',
           message: "Erreur lors de la création de l'artiste",
-          details: artistInsertError.message
+          details: artistInsertError?.message || 'Unknown error'
         };
       }
       
@@ -120,8 +120,8 @@ export const directAddSongSheet = async (
       .insert(partitionData)
       .select('id')
       .single();
-      
-    if (partitionError || !newPartition) {
+
+    if (partitionError) {
       console.error("Erreur lors de la création de la partition:", partitionError);
       return { 
         error: 'DATABASE_ERROR',
@@ -130,17 +130,16 @@ export const directAddSongSheet = async (
       };
     }
 
-    const partitionId = newPartition.id;
-    
-    // Validation stricte de l'ID de partition avant d'insérer les accords
-    if (!partitionId || typeof partitionId !== 'number' || partitionId <= 0) {
-      console.error("ID de partition invalide après insertion:", partitionId);
+    if (!newPartition || !newPartition.id || typeof newPartition.id !== 'number' || newPartition.id <= 0) {
+      console.error("ID de partition invalide ou manquant après insertion:", newPartition);
       return {
         error: 'DATABASE_ERROR',
         message: 'ID de partition invalide après création',
-        details: `ID reçu: ${partitionId}`
+        details: `Partition créée mais ID invalide: ${JSON.stringify(newPartition)}`
       };
     }
+
+    const partitionId = newPartition.id;
     
     // 3. Insérer les accords seulement si nous avons des accords valides à insérer
     if (!chords || !Array.isArray(chords) || chords.length === 0) {
