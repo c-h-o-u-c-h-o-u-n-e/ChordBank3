@@ -24,11 +24,12 @@ const YouTubeAudioPlayer: React.FC<YouTubeAudioPlayerProps> = ({ youtubeLink }) 
   const [isDragging, setIsDragging] = useState(false);
   const [duration, setDuration] = useState(0);
   const [player, setPlayer] = useState<YT.Player | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const playerRef = useRef<HTMLDivElement>(null);
   const progressInterval = useRef<number | null>(null);
   const initializationTimeout = useRef<number | null>(null);
+  const initializationAttempts = useRef(0);
+  const maxAttempts = 3;
 
   const youtubeId = extractYouTubeId(youtubeLink);
   
@@ -36,9 +37,9 @@ const YouTubeAudioPlayer: React.FC<YouTubeAudioPlayerProps> = ({ youtubeLink }) 
   useEffect(() => {
     // Reset states when YouTube link changes
     setIsPlaying(false);
-    setProgress(0);
-    setDuration(0);
     setError(null);
+    setPlayer(null);
+    initializationAttempts.current = 0;
     
     if (!youtubeId) return;
 
@@ -74,8 +75,7 @@ const YouTubeAudioPlayer: React.FC<YouTubeAudioPlayerProps> = ({ youtubeLink }) 
               const videoDuration = newPlayer.getDuration();
               setDuration(videoDuration);
               // Définir le volume initial
-              newPlayer.setVolume(70);
-              setIsInitialized(true);
+              newPlayer.setVolume(50);
             },
             onStateChange: (event) => {
               if (event.data === YT.PlayerState.ENDED) {
@@ -86,12 +86,22 @@ const YouTubeAudioPlayer: React.FC<YouTubeAudioPlayerProps> = ({ youtubeLink }) 
             onError: (e) => {
               console.error('YouTube player error:', e);
               setError("Erreur lors du chargement de l'audio");
+              retryInitialization();
             }
           }
         });
       } catch (e) {
         console.error('Error initializing YouTube player:', e);
         setError("Erreur lors de l'initialisation du lecteur");
+        retryInitialization();
+      }
+    };
+
+    const retryInitialization = () => {
+      if (initializationAttempts.current < maxAttempts) {
+        initializationAttempts.current++;
+        console.log(`Retrying initialization (attempt ${initializationAttempts.current})`);
+        setTimeout(initYouTubePlayer, 1000 * initializationAttempts.current);
       }
     };
 
@@ -121,8 +131,9 @@ const YouTubeAudioPlayer: React.FC<YouTubeAudioPlayerProps> = ({ youtubeLink }) 
       } catch (error) {
         console.error('Failed to initialize YouTube player:', error);
         setError('Failed to initialize player');
+        retryInitialization();
       }
-    }
+    };
 
     // Start initialization
     initializePlayer();
@@ -133,12 +144,6 @@ const YouTubeAudioPlayer: React.FC<YouTubeAudioPlayerProps> = ({ youtubeLink }) 
         player.stopVideo();
         player.destroy();
         setPlayer(null);
-      }
-      if (progressInterval.current) {
-        window.clearInterval(progressInterval.current);
-      }
-      if (initializationTimeout.current) {
-        window.clearTimeout(initializationTimeout.current);
       }
     };
   }, [youtubeId]);
