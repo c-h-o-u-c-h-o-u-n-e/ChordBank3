@@ -95,20 +95,13 @@ const SongViewer: React.FC = () => {
   };
 
   const handleFavoriteClick = useCallback(async () => {
-    if (!currentSongDetails) {
-      console.warn('No song selected');
+    if (!currentSongDetails || typeof currentSongDetails.id !== 'number') {
+      console.warn('No song selected or invalid song ID');
       return;
     }
     
     try {
-      // Use selectedSong from the store to get the ID
-      const songId = useSongStore.getState().selectedSong?.[1];
-      if (typeof songId !== 'number') {
-        console.warn('Invalid song ID');
-        return;
-      }
-      
-      const isFavorite = await toggleFavorite(songId);
+      const isFavorite = await toggleFavorite(currentSongDetails.id);
       setCurrentSongDetails({ ...currentSongDetails, isFavorite });
     } catch (error) {
       console.error('Error toggling favorite:', error);
