@@ -28,18 +28,29 @@ const YouTubeAudioPlayer: React.FC<YouTubeAudioPlayerProps> = ({ youtubeLink }) 
   const [error, setError] = useState<string | null>(null);
   const playerRef = useRef<HTMLDivElement>(null);
   const progressInterval = useRef<number | null>(null);
+  const initializationTimeout = useRef<number | null>(null);
 
   const youtubeId = extractYouTubeId(youtubeLink);
   
   // Initialisation de l'API YouTube
   useEffect(() => {
-    // Si pas de lien ou déjà initialisé, ne rien faire
-    if (!youtubeId || isInitialized) return;
+    // Reset states when YouTube link changes
+    setIsPlaying(false);
+    setProgress(0);
+    setDuration(0);
+    setError(null);
+    
+    if (!youtubeId) return;
 
     // Fonction pour initialiser le lecteur YouTube
     const initYouTubePlayer = () => {
       try {
         if (!playerRef.current) return;
+        
+        // Destroy existing player if any
+        if (player) {
+          player.destroy();
+        }
         
         // Créer un nouveau lecteur YouTube
         const newPlayer = new window.YT.Player(playerRef.current, {
@@ -60,9 +71,17 @@ const YouTubeAudioPlayer: React.FC<YouTubeAudioPlayerProps> = ({ youtubeLink }) 
             onReady: () => {
               console.log('YouTube player ready');
               setPlayer(newPlayer);
-              setDuration(newPlayer.getDuration());
+              const videoDuration = newPlayer.getDuration();
+              setDuration(videoDuration);
               // Définir le volume initial
               newPlayer.setVolume(70);
+              setIsInitialized(true);
+            },
+            onStateChange: (event) => {
+              if (event.data === YT.PlayerState.ENDED) {
+                setIsPlaying(false);
+                setProgress(0);
+              }
             },
             onError: (e) => {
               console.error('YouTube player error:', e);
@@ -76,47 +95,72 @@ const YouTubeAudioPlayer: React.FC<YouTubeAudioPlayerProps> = ({ youtubeLink }) 
       }
     };
 
-    // Charger l'API YouTube si elle n'est pas déjà chargée
-    if (!window.YT) {
-      const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api';
-      
-      // Définir la fonction de callback
-      window.onYouTubeIframeAPIReady = () => {
+    const loadYouTubeAPI = () => {
+      return new Promise<void>((resolve) => {
+        if (window.YT && window.YT.Player) {
+          resolve();
+          return;
+        }
+
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        
+        window.onYouTubeIframeAPIReady = () => {
+          resolve();
+        };
+        
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+      });
+    };
+
+    const initializePlayer = async () => {
+      try {
+        await loadYouTubeAPI();
         initYouTubePlayer();
-        setIsInitialized(true);
-      };
-      
-      // Ajouter le script au document
-      const firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-    } else {
-      // Si l'API est déjà chargée, initialiser directement le lecteur
-      initYouTubePlayer();
-      setIsInitialized(true);
+      } catch (error) {
+        console.error('Failed to initialize YouTube player:', error);
+        setError('Failed to initialize player');
+      }
     }
+
+    // Start initialization
+    initializePlayer();
     
     // Nettoyage lors du démontage du composant
     return () => {
       if (player) {
         player.stopVideo();
         player.destroy();
+        setPlayer(null);
       }
-      // Nettoyage de la fonction globale
-      if (window.onYouTubeIframeAPIReady === window.onYouTubeIframeAPIReady) {
-        window.onYouTubeIframeAPIReady = () => {};
+      if (progressInterval.current) {
+        window.clearInterval(progressInterval.current);
+      }
+      if (initializationTimeout.current) {
+        window.clearTimeout(initializationTimeout.current);
       }
     };
-  }, [youtubeId, isInitialized, player]);
+  }, [youtubeId]);
 
   // Mise à jour de l'état de lecture
   useEffect(() => {
     if (!player) return;
     
     if (isPlaying) {
-      player.playVideo();
+      try {
+        player.playVideo();
+      } catch (error) {
+        console.error('Error playing video:', error);
+        setError('Error playing audio');
+        setIsPlaying(false);
+      }
     } else {
-      player.pauseVideo();
+      try {
+        player.pauseVideo();
+      } catch (error) {
+        console.error('Error pausing video:', error);
+      }
     }
   }, [isPlaying, player]);
 
@@ -125,9 +169,17 @@ const YouTubeAudioPlayer: React.FC<YouTubeAudioPlayerProps> = ({ youtubeLink }) 
     if (!player) return;
     
     if (isMuted) {
-      player.mute();
+      try {
+        player.mute();
+      } catch (error) {
+        console.error('Error muting:', error);
+      }
     } else {
-      player.unMute();
+      try {
+        player.unMute();
+      } catch (error) {
+        console.error('Error unmuting:', error);
+      }
     }
   }, [isMuted, player]);
 
