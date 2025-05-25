@@ -51,14 +51,24 @@ export const directAddSongSheet = async (
   try {
     // 1. Insérer ou récupérer l'artiste
     let artistId: number;
-    const { data: existingArtist, error: artistSearchError } = await supabase
+    const { data: existingArtists, error: artistSearchError } = await supabase
       .from('artists')
       .select('id')
       .eq('name', artist)
-      .limit(1)
-      .single();
+      .limit(1);
       
-    if (artistSearchError || !existingArtist) {
+    if (artistSearchError) {
+      return { 
+        error: 'DATABASE_ERROR',
+        message: "Erreur lors de la recherche de l'artiste",
+        details: artistSearchError.message
+      };
+    }
+
+    if (existingArtists && existingArtists.length > 0) {
+      artistId = existingArtists[0].id;
+      console.log("Existing artist found with ID:", artistId);
+    } else {
       const { data: newArtist, error: artistInsertError } = await supabase
         .from('artists')
         .insert({ name: artist })
@@ -74,8 +84,7 @@ export const directAddSongSheet = async (
       }
       
       artistId = newArtist.id;
-    } else {
-      artistId = existingArtist.id;
+      console.log("New artist created with ID:", artistId);
     }
     
     // Validation stricte de l'ID d'artiste
