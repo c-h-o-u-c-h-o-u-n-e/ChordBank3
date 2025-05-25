@@ -21,6 +21,7 @@ const YouTubeAudioPlayer: React.FC<YouTubeAudioPlayerProps> = ({ youtubeLink }) 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const [duration, setDuration] = useState(0);
   const [player, setPlayer] = useState<YT.Player | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -133,6 +134,7 @@ const YouTubeAudioPlayer: React.FC<YouTubeAudioPlayerProps> = ({ youtubeLink }) 
   // Mise à jour de la progression
   useEffect(() => {
     if (!player) return;
+    if (isDragging) return;
     
     if (isPlaying) {
       progressInterval.current = window.setInterval(() => {
@@ -151,23 +153,52 @@ const YouTubeAudioPlayer: React.FC<YouTubeAudioPlayerProps> = ({ youtubeLink }) 
     };
   }, [isPlaying, player]);
 
-  // Gestion du bouton de lecture/pause
-  const togglePlay = () => {
-    setIsPlaying(prev => !prev);
+  // Gestion du drag de la barre de progression
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    setIsDragging(true);
+    handleProgressUpdate(e);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
   };
 
-  // Gestion du clic sur la barre de progression
-  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return;
+    const progressBar = document.querySelector('.progress-bar');
+    if (!progressBar) return;
+    
+    const rect = progressBar.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const percentage = (x / rect.width) * 100;
+    setProgress(percentage);
+  };
+
+  const handleMouseUp = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+    
+    if (!player || !duration) return;
+    const newTime = (duration * progress) / 100;
+    player.seekTo(newTime, true);
+  };
+
+  const handleProgressUpdate = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!player || !duration) return;
     
     const progressBar = e.currentTarget;
     const rect = progressBar.getBoundingClientRect();
-    const x = e.clientX - rect.left;
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
     const percentage = (x / rect.width) * 100;
-    const newTime = (duration * percentage) / 100;
-    
-    player.seekTo(newTime, true);
     setProgress(percentage);
+    
+    const newTime = (duration * percentage) / 100;
+    player.seekTo(newTime, true);
+  };
+
+  // Gestion du bouton de lecture/pause
+  const togglePlay = () => {
+    setIsPlaying(prev => !prev);
   };
 
   // Gestion du bouton de sourdine
@@ -205,13 +236,18 @@ const YouTubeAudioPlayer: React.FC<YouTubeAudioPlayerProps> = ({ youtubeLink }) 
         
         {/* Barre de progression */}
         <div 
-          className="relative flex-1 h-2 bg-[#E5E0C0] rounded-full cursor-pointer overflow-hidden"
-          onClick={handleProgressClick}
+          className="relative flex-1 h-2 bg-[#E5E0C0] rounded-full cursor-pointer overflow-hidden progress-bar"
+          onMouseDown={handleMouseDown}
         >
           <div 
             className="absolute inset-y-0 left-0 bg-[#CD2928] rounded-full transition-all duration-300"
             style={{ width: `${progress}%` }}
-          />
+          >
+            <div 
+              className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-md transform -translate-x-1/2 hover:scale-110 transition-transform"
+              style={{ display: isDragging ? 'block' : 'none' }}
+            />
+          </div>
         </div>
         
         {/* Durée */}
