@@ -58,6 +58,7 @@ export const directAddSongSheet = async (
       .limit(1);
       
     if (artistSearchError) {
+      console.error("Erreur lors de la recherche de l'artiste:", artistSearchError);
       return { 
         error: 'DATABASE_ERROR',
         message: "Erreur lors de la recherche de l'artiste",
@@ -76,6 +77,7 @@ export const directAddSongSheet = async (
         .single();
         
       if (artistInsertError || !newArtist) {
+        console.error("Erreur lors de la création de l'artiste:", artistInsertError);
         return { 
           error: 'DATABASE_ERROR',
           message: "Erreur lors de la création de l'artiste",
@@ -121,17 +123,18 @@ export const directAddSongSheet = async (
       .select('id')
       .single();
 
-    if (partitionError) {
+    if (partitionError || !newPartition) {
       console.error("Erreur lors de la création de la partition:", partitionError);
       return { 
         error: 'DATABASE_ERROR',
         message: 'Erreur lors de la création de la partition',
-        details: partitionError.message
+        details: partitionError?.message || 'Unknown error'
       };
     }
 
-    if (!newPartition || !newPartition.id || typeof newPartition.id !== 'number' || newPartition.id <= 0) {
-      console.error("ID de partition invalide ou manquant après insertion:", newPartition);
+    // Validation stricte de l'ID de partition
+    if (!newPartition.id || typeof newPartition.id !== 'number' || newPartition.id <= 0) {
+      console.error("ID de partition invalide après insertion:", newPartition);
       return {
         error: 'DATABASE_ERROR',
         message: 'ID de partition invalide après création',
@@ -140,6 +143,7 @@ export const directAddSongSheet = async (
     }
 
     const partitionId = newPartition.id;
+    console.log("Partition ID before chord insertion:", partitionId);
     
     // 3. Insérer les accords seulement si nous avons des accords valides à insérer
     if (!chords || !Array.isArray(chords) || chords.length === 0) {
